@@ -48,6 +48,7 @@ module ex_stage #(
     input  branchpredict_sbe_t                     branch_predict_i,      // branch prediction in
     output logic [TRANS_ID_BITS-1:0]               branch_trans_id_o,
     output exception_t                             branch_exception_o,    // branch unit detected an exception
+    output update_ras_t                            update_ras_o,          // update RAS
 
     output branchpredict_t                         resolved_branch_o,     // the branch engine uses the write back from the ALU
     output logic                                   resolve_branch_o,      // to ID signaling that we resolved the branch

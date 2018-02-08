@@ -31,6 +31,9 @@ module pcgen_stage (
     input  logic [63:0]        boot_addr_i,
     // from commit
     input  logic [63:0]        pc_commit_i,        // PC of instruction in commit stage
+    // from ID
+    input  logic               set_pc_id_i,
+    input  logic [63:0]        id_pc_i,
     // CSR input
     input  logic [63:0]        epc_i,              // exception PC which we need to return to
     input  logic               eret_i,             // return from exception
@@ -78,6 +81,9 @@ module pcgen_stage (
         fetch_address = npc_q;
 
         branch_predict_o = branch_predict_btb;
+        branch_predict_o.is_call = 1'b0;
+        branch_predict_o.dont_update = 1'b0;
+
         fetch_valid_o    = 1'b1;
         // this tells us whether it is a consecutive PC or a completely new PC
         set_pc_n         = 1'b0;
@@ -122,6 +128,15 @@ module pcgen_stage (
             // 0x20002d8e bnez             a4, pc + 148     <- predicted as well (but kill prediction as the previous instruction could be 32 bit)
             else
                 branch_predict_o.valid = 1'b0;
+        end
+
+        // -------------------------------
+        // 2. Redirect from ID
+        // -------------------------------
+        if (set_pc_id_i) begin
+            npc_n    = id_pc_i;
+            set_pc_n = 1'b1;
+            branch_predict_o.valid = 1'b0;
         end
 
         // -------------------------------

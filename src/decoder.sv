@@ -452,21 +452,22 @@ module decoder (
                 end
                 // Jump and link register
                 OPCODE_JALR: begin
-                    instruction_o.fu          = CTRL_FLOW;
-                    instruction_o.op          = JALR;
-                    instruction_o.rs1         = instr.itype.rs1;
-                    imm_select                = IIMM;
-                    instruction_o.rd          = instr.itype.rd;
-                    is_control_flow_instr_o   = 1'b1;
+                    instruction_o.fu         = CTRL_FLOW;
+                    instruction_o.op         = JALR;
+                    instruction_o.rs1        = instr.itype.rs1;
+                    imm_select               = IIMM;
+                    instruction_o.rd         = instr.itype.rd;
+                    is_control_flow_instr_o  = 1'b1;
                     // its a call if rd = x1 (ra)
-                    instruction_o.bp.is_call  = (instr.itype.rd == 'b1) ? 1'b1 : 1'b0;
+                    instruction_o.bp.is_call = (instr.itype.rd == 'b1) ? 1'b1 : 1'b0;
                 end
                 // Jump and link
                 OPCODE_JAL: begin
-                    instruction_o.fu        = CTRL_FLOW;
-                    imm_select              = JIMM;
-                    instruction_o.rd        = instr.utype.rd;
-                    is_control_flow_instr_o = 1'b1;
+                    instruction_o.fu         = CTRL_FLOW;
+                    imm_select               = JIMM;
+                    instruction_o.rd         = instr.utype.rd;
+                    is_control_flow_instr_o  = 1'b1;
+                    instruction_o.bp.is_call = (instr.utype.rd == 'b1) ? 1'b1 : 1'b0;
                 end
 
                 OPCODE_AUIPC: begin

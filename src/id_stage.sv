@@ -36,7 +36,9 @@ module id_stage (
     input  logic                                     tw_i,
     input  logic                                     tsr_i,
     // from branch unit
-    input  branchpredict_t                           resolved_branch_i   // update RAS
+    input  update_ras_t                              update_ras_i,        // update RAS
+    output logic                                     set_pc_id_o,
+    output logic [63:0]                              id_pc_o
 );
     // register stage
     struct packed {
@@ -47,7 +49,8 @@ module id_stage (
     } issue_n, issue_q;
 
     logic                is_control_flow_instr;
-    scoreboard_entry_t   decoded_instruction;
+    scoreboard_entry_t   instr_from_decoder;
+    scoreboard_entry_t   instr_from_early_branch;
 
     fetch_entry_t        fetch_entry;
     logic                is_illegal;
@@ -89,7 +92,7 @@ module id_stage (
         .branch_predict_i        ( fetch_entry.branch_predict  ),
         .is_illegal_i            ( is_illegal                  ),
         .ex_i                    ( fetch_entry.ex              ),
-        .instruction_o           ( decoded_instruction         ),
+        .instruction_o           ( instr_from_decoder          ),
         .is_control_flow_instr_o ( is_control_flow_instr       ),
         .*
     );
@@ -114,25 +117,54 @@ module id_stage (
         // for a new instruction
         if ((!issue_q.valid || issue_instr_ack_i) && fetch_entry_valid) begin
             fetch_ack_i = 1'b1;
-            issue_n = {1'b1, decoded_instruction, is_control_flow_instr};
+            issue_n = {1'b1, instr_from_early_branch, is_control_flow_instr};
         end
 
-        // invalidate the pipeline register on a flush
-        if (flush_i)
+        // invalidate the pipeline register on a flush except if we are triggering the flush ourself
+        // because we requested a new PC from IF stage
+        if (flush_i && !set_pc_id_o)
             issue_n.valid = 1'b0;
     end
 
     // -----------------------
     // Early Branching Logic
     // -----------------------
+    logic        pop_ras;
+    logic [63:0] ra; // return address
+    logic        ret_instr;
+
+    always_comb begin
+        automatic logic ret_instr;
+        instr_from_early_branch = instr_from_decoder;
+        pop_ras = 1'b0;
+        // detected a return instruction
+        ret_instr = is_ret(instruction_t'(instruction));
+
+        set_pc_id_o = 1'b0;
+        // set the PC to return address
+        id_pc_o = ra;
+        // TODO: this can be more performant as we can redirect the branching logic as soon as we have decoded
+        // a valid instruction
+        if (ret_instr && fetch_ack_i) begin
+            set_pc_id_o = 1'b1;
+            pop_ras = 1'b1;
+            // update branch-prediction data structure in case we mis-predicted here
+            instr_from_early_branch.bp.valid = 1'b1;
+            instr_from_early_branch.bp.predict_taken = 1'b1;
+            instr_from_early_branch.bp.dont_update = 1'b1;
+            instr_from_early_branch.bp.predict_address = id_pc_o;
+        end
+
+    end
+
     // RAS
     ras #(
         .DEPTH ( RAS_DEPTH )
     ) i_ras (
-        .push_i ( resolved_branch_i.is_call             ),
-        .data_i ( resolved_branch_i.target_address      ),
-        .data_o (                                       ),
-        .pop_i  ( is_ret(instruction_t'(instruction))   ),
+        .push_i ( update_ras_i.valid ),
+        .data_i ( update_ras_i.ra    ),
+        .data_o ( ra                 ),
+        .pop_i  ( pop_ras            ),
         .*
     );
 
@@ -140,7 +172,7 @@ module id_stage (
     // Registers (ID <-> Issue)
     // -------------------------
     always_ff @(posedge clk_i or negedge rst_ni) begin
-        if(~rst_ni) begin
+        if (~rst_ni) begin
             issue_q <= '0;
         end else begin
             issue_q <= issue_n;
@@ -177,6 +209,10 @@ module ras #(
         if (pop_i) begin
             stack_d[DEPTH-2:0] = stack_q[DEPTH-1:1];
         end
+        // just change the uppermost element
+        if (push_i && pop_i) begin
+            stack_d[0] = data_i;
+        end
     end
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -186,12 +222,4 @@ module ras #(
             stack_q <= stack_d;
         end
     end
-
-    `ifndef SYNTHESIS
-    `ifndef verilator
-    assert property (
-        @(posedge clk_i) rst_ni |-> push_i ^ pop_i)
-        else $error("[RAS] Push and pop must never be asserted at the same time");
-    `endif
-    `endif
 endmodule

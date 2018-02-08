@@ -82,15 +82,12 @@ module ariane #(
     logic                     if_ready_if_pcgen;
     logic                     fetch_valid_pcgen_if;
     // --------------
-    // PCGEN <-> COMMIT
-    // --------------
-    // --------------
     // PCGEN <-> CSR
     // --------------
     logic [63:0]              trap_vector_base_commit_pcgen;
     logic [63:0]              epc_commit_pcgen;
     // --------------
-    // IF <-> ID
+    // ID <-> *
     // --------------
     fetch_entry_t             fetch_entry_if_id;
     logic                     ready_id_if;
@@ -98,14 +95,14 @@ module ariane #(
     logic                     decode_ack_id_if;
     exception_t               exception_if_id;
 
-    // --------------
-    // ID <-> ISSUE
-    // --------------
     scoreboard_entry_t        issue_entry_id_issue;
     logic                     issue_entry_valid_id_issue;
     logic                     is_ctrl_fow_id_issue;
     logic                     issue_instr_issue_id;
 
+    update_ras_t              update_ras_ex_id;
+    logic                     set_pc_id_pcgen;
+    logic [63:0]              id_pc_id_pcgen;
     // --------------
     // ISSUE <-> EX
     // --------------
@@ -133,8 +130,7 @@ module ariane #(
     logic                     branch_valid_id_ex;
 
     branchpredict_sbe_t       branch_predict_id_ex;
-    logic                     resolve_branch_ex_id;
-    // LSU
+    logic                     resolve_branch_ex_issue;   // LSU
     logic                     lsu_valid_id_ex;
     logic                     lsu_ready_ex_id;
 
@@ -284,6 +280,8 @@ module ariane #(
         .branch_predict_o      ( branch_predict_pcgen_if        ),
         .boot_addr_i           ( boot_addr_i                    ),
         .pc_commit_i           ( pc_commit                      ),
+        .set_pc_id_i           ( set_pc_id_pcgen                ),
+        .id_pc_i               ( id_pc_id_pcgen                 ),
         .epc_i                 ( epc_commit_pcgen               ),
         .eret_i                ( eret                           ),
         .trap_vector_base_i    ( trap_vector_base_commit_pcgen  ),
@@ -340,7 +338,9 @@ module ariane #(
         .tw_i                       ( tw_csr_id                       ),
         .tsr_i                      ( tsr_csr_id                      ),
 
-        .resolved_branch_i          ( resolved_branch                 ),
+        .update_ras_i               ( update_ras_ex_id                ),
+        .id_pc_o                    ( id_pc_id_pcgen                  ),
+        .set_pc_id_o                ( set_pc_id_pcgen                 ),
         .*
     );
 
@@ -381,7 +381,7 @@ module ariane #(
         .branch_ready_i             ( branch_ready_ex_id              ),
         .branch_valid_o             ( branch_valid_id_ex              ), // branch is valid
         .branch_predict_o           ( branch_predict_id_ex            ), // branch predict to ex
-        .resolve_branch_i           ( resolve_branch_ex_id            ), // in order to resolve the branch
+        .resolve_branch_i           ( resolve_branch_ex_issue         ), // in order to resolve the branch
         // LSU
         .lsu_ready_i                ( lsu_ready_ex_id                 ),
         .lsu_valid_o                ( lsu_valid_id_ex                 ),
@@ -439,7 +439,8 @@ module ariane #(
         .branch_exception_o     ( branch_exception_ex_id                 ),
         .branch_predict_i       ( branch_predict_id_ex                   ), // branch predict to ex
         .resolved_branch_o      ( resolved_branch                        ),
-        .resolve_branch_o       ( resolve_branch_ex_id                   ),
+        .resolve_branch_o       ( resolve_branch_ex_issue                ),
+        .update_ras_o           ( update_ras_ex_id                       ),
         // LSU
         .lsu_ready_o            ( lsu_ready_ex_id                        ),
         .lsu_valid_i            ( lsu_valid_id_ex                        ),
@@ -618,6 +619,7 @@ module ariane #(
         .halt_csr_i             ( halt_csr_ctrl                 ),
         .halt_debug_i           ( halt_debug_ctrl               ),
         .debug_set_pc_i         ( set_pc_debug                  ),
+        .set_pc_id_i            ( set_pc_id_pcgen               ),
         .halt_o                 ( halt_ctrl                     ),
         // control ports
         .eret_i                 ( eret                          ),

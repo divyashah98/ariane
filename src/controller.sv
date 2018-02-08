@@ -32,6 +32,7 @@ module controller (
     input  logic            halt_csr_i,             // Halt request from CSR (WFI instruction)
     input  logic            halt_debug_i,           // Halt request from debug
     input  logic            debug_set_pc_i,         // Debug wants to set the PC
+    input  logic            set_pc_id_i,            // PC is set from ID stage, flush everything before ID
     output logic            halt_o,                 // Halt signal to commit stage
     input  logic            eret_i,                 // Return from exception
     input  logic            ex_valid_i,             // We got an exception, flush the pipeline
@@ -62,9 +63,10 @@ module controller (
         flush_dcache           = 1'b0;
         flush_bp_o             = 1'b0; // flush branch prediction
         flush_icache_d         = (flush_icache_ack_i) ? 1'b0 : flush_icache_q;
-        // ------------
+
+        // ---------------------------------
         // Mis-predict
-        // ------------
+        // ---------------------------------
         // flush on mispredict
         if (resolved_branch_i.is_mispredict) begin
             // flush only un-issued instructions
@@ -73,6 +75,12 @@ module controller (
             flush_if_o             = 1'b1;
         end
 
+        // ---------------------------------
+        // Set PC from ID
+        // ---------------------------------
+        if (set_pc_id_i) begin
+            flush_if_o = 1'b1;
+        end
         // ---------------------------------
         // FENCE
         // ---------------------------------

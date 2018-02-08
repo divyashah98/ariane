@@ -33,6 +33,7 @@ module branch_unit (
     output branchpredict_t            resolved_branch_o,      // this is the actual address we are targeting
     output logic                      resolve_branch_o,       // to ID to clear that we resolved the branch and we can
                                                               // accept new entries to the scoreboard
+    output update_ras_t               update_ras_o,           // update RAS
     output exception_t                branch_exception_o      // branch exception out
 );
     logic [63:0] target_address;
@@ -76,7 +77,6 @@ module branch_unit (
         resolved_branch_o.is_mispredict  = 1'b0;
         resolved_branch_o.is_lower_16    = 1'b0;
         resolved_branch_o.clear          = 1'b0;
-        resolved_branch_o.is_call        = 1'b0;
         resolve_branch_o                 = 1'b0;
         // calculate next PC, depending on whether the instruction is compressed or not this may be different
         next_pc                          = pc_i + ((is_compressed_instr_i) ? 64'h2 : 64'h4);
@@ -86,8 +86,10 @@ module branch_unit (
         if (operator_i == JALR)
             target_address[0] = 1'b0;
         // if we need to put the branch target address in a destination register, output it here to WB
-        branch_result_o                  = next_pc;
-
+        branch_result_o    = next_pc;
+        // update return address stack
+        update_ras_o.valid = 1'b0;
+        update_ras_o.ra    = next_pc;
         // save PC - we need this to get the target row in the branch target buffer
         // we play this trick with the branch instruction which wraps a word boundary:
         //  /---------- Place the prediction on this PC
@@ -131,8 +133,12 @@ module branch_unit (
             // to resolve the branch in ID
             resolve_branch_o = 1'b1;
             // check if this was a call or not
-            if (operator_i == JALR && branch_predict_i.is_call)
-                resolved_branch_o.is_call = 1'b1;
+            if (branch_predict_i.is_call)
+                update_ras_o.valid = 1'b1;
+
+            // check if want to update branch-prediction (e.g.: do not update on a return)
+            if (branch_predict_i.dont_update)
+                resolved_branch_o.valid = 1'b0;
         // the other case would be that this instruction was no branch but branch prediction thought that it was one (aliasing)
         // this is essentially also a mis-predict
         end else if (fu_valid_i && branch_predict_i.valid && branch_predict_i.predict_taken) begin

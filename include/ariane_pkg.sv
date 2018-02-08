@@ -70,7 +70,6 @@ package ariane_pkg;
                                       // in the lower 16 bit of the word
         logic        valid;           // prediction with all its values is valid
         logic        clear;           // invalidate this entry
-        logic        is_call;         // this instruction was a call
     } branchpredict_t;
 
     // branchpredict scoreboard entry
@@ -83,7 +82,14 @@ package ariane_pkg;
                                       // in the lower 16 bit of the word
         logic        valid;           // this is a valid hint
         logic        is_call;         // this instruction is a call
+        logic        dont_update;     // don't update BTB or BHT
     } branchpredict_sbe_t;
+
+    // struct to update RAS
+    typedef struct packed {
+        logic        valid; // ras update is valid
+        logic [63:0] ra;    // return address
+    } update_ras_t;
 
     typedef enum logic[3:0] {
         NONE, LOAD, STORE, ALU, CTRL_FLOW, MULT, CSR
@@ -433,7 +439,7 @@ package ariane_pkg;
     // Utility Functions
     // ----------------------
     function automatic logic is_call (instruction_t instr);
-        if (instr.itype.opcode == OPCODE_JALR)
+        if (instr.itype.opcode == OPCODE_JALR || instr.itype.opcode == OPCODE_JAL)
             // if the destination register is x1 this is the calling convention for a function call
             return (instr.itype.rd == 'b1) ? 1'b1 : 1'b0;
         else
