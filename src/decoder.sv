@@ -394,7 +394,13 @@ module decoder (
                         unique case (instr.instr[31:27])
                             5'h0:  instruction_o.op = AMO_ADDW;
                             5'h1:  instruction_o.op = AMO_SWAPW;
-                            5'h2:  instruction_o.op = AMO_LRW;
+                            5'h2:  begin
+                                   // Check if RS2 is set for LR operation
+                                   if (instr.stype.rs2)
+                                     illegal_instr = 1'b1;
+                                   else
+                                     instruction_o.op = AMO_LRW;
+                            end
                             5'h3:  instruction_o.op = AMO_SCW;
                             5'h4:  instruction_o.op = AMO_XORW;
                             5'h8:  instruction_o.op = AMO_ORW;
@@ -410,7 +416,13 @@ module decoder (
                         unique case (instr.instr[31:27])
                             5'h0:  instruction_o.op = AMO_ADDD;
                             5'h1:  instruction_o.op = AMO_SWAPD;
-                            5'h2:  instruction_o.op = AMO_LRD;
+                            5'h2:  begin
+                                   // Check if RS2 is set for LR operation
+                                   if (instr.stype.rs2)
+                                     illegal_instr = 1'b1;
+                                   else
+                                     instruction_o.op = AMO_LRD;
+                            end
                             5'h3:  instruction_o.op = AMO_SCD;
                             5'h4:  instruction_o.op = AMO_XORD;
                             5'h8:  instruction_o.op = AMO_ORD;

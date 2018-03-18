@@ -163,9 +163,10 @@ module ariane #(
     logic                     lsu_commit_commit_ex;
     logic                     lsu_commit_ready_ex_commit;
     logic                     no_st_pending_ex_commit;
+    // AMO Commit
     logic                     amo_commit_commit_ex;
     logic                     amo_valid;
-    logic [63:0]              amo_result_commit_ex;
+    logic [63:0]              amo_result_ex_commit;
     // --------------
     // ID <-> COMMIT
     // --------------
